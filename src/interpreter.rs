@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    ast::{expr::Expr, token::Token, token::TokenType},
+    ast::{expr::Expr, stmt::Stmt, token::Token, token::TokenType},
     object::Object,
 };
 #[derive(Debug, PartialEq)]
@@ -20,13 +20,29 @@ impl Default for Interpreter {
 }
 
 type EvalRes = Result<Object, RuntimeError>;
+type ExcecuteStmtRes = Result<(), RuntimeError>;
 
 impl<'a> Interpreter {
-    pub fn interpret(&self, expr: &'a Expr) {
-        match self.evauluate_expr(expr) {
-            Err(e) => println!("{:?}", e),
-            Ok(o) => println!("{}", o),
+    pub fn interpret(&self, stmts: &'a Vec<Stmt>) {
+        for s in stmts.iter() {
+            if let Err(e) = self.execute_stmt(s) {
+                println!("{:?}", e);
+                break;
+            }
         }
+    }
+
+    fn execute_stmt(&self, stmt: &'a Stmt) -> ExcecuteStmtRes {
+        match stmt {
+            //Todo: Ingore value?
+            Stmt::EXPR(e) => _ = self.evauluate_expr(e),
+            Stmt::PRINT(e) => {
+                let value = self.evauluate_expr(e)?;
+                println!("{}", value);
+            }
+        }
+
+        Ok(())
     }
 
     fn evauluate_expr(&self, expr: &'a Expr) -> EvalRes {

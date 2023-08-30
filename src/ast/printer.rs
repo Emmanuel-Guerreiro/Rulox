@@ -1,6 +1,7 @@
 use super::{
     expr::{self, Expr},
-    ExprVisitor,
+    stmt::{self, Stmt},
+    ExprVisitor, StmtVisitor,
 };
 
 /**
@@ -11,7 +12,21 @@ pub struct AstPrinter;
 
 #[allow(dead_code)]
 impl AstPrinter {
-    pub fn print(&self, e: &expr::Expr) -> String {
+    pub fn print_program(&self, e: &Vec<Stmt>) -> String {
+        let mut str = String::from("");
+
+        for s in e.iter() {
+            str += &self.print_stmt(s);
+        }
+
+        str
+    }
+
+    pub fn print_stmt(&self, e: &stmt::Stmt) -> String {
+        self.visit_stmt(e)
+    }
+
+    pub fn print_expr(&self, e: &expr::Expr) -> String {
         self.visit_expr(e)
     }
     fn parenthesize(&self, name: &str, exprs: Vec<&Box<Expr>>) -> String {
@@ -24,6 +39,16 @@ impl AstPrinter {
         }
         s += ")";
         s
+    }
+}
+
+impl StmtVisitor<String> for AstPrinter {
+    fn visit_stmt(&self, b: &super::stmt::Stmt) -> String {
+        match b {
+            //Todo: Add some kind of parenthesize for stmt
+            Stmt::EXPR(e) => self.visit_expr(e),
+            Stmt::PRINT(e) => self.visit_expr(e),
+        }
     }
 }
 
@@ -56,7 +81,7 @@ mod printer_tests {
     fn print_number_literal() {
         let number_literal = Expr::NumberLit(65.0);
 
-        let result = AstPrinter::default().print(&Box::new(number_literal));
+        let result = AstPrinter::default().print_expr(&Box::new(number_literal));
         assert!(result == String::from("65"))
     }
 
@@ -64,7 +89,7 @@ mod printer_tests {
     fn print_string_literal() {
         let number_literal = Expr::StringLit(Box::new(String::from("Im string literal")));
 
-        let result = AstPrinter::default().print(&Box::new(number_literal));
+        let result = AstPrinter::default().print_expr(&Box::new(number_literal));
         assert_eq!(result, String::from("Im string literal"))
     }
     #[test]
@@ -73,7 +98,7 @@ mod printer_tests {
         let four_tkn = Expr::NumberLit(4.0);
         let three_tkn = Expr::NumberLit(3.0);
         let factor_expr = Expr::Binary(Box::new(three_tkn), Box::new(star_tkn), Box::new(four_tkn));
-        let result = AstPrinter::default().print(&factor_expr);
+        let result = AstPrinter::default().print_expr(&factor_expr);
         assert_eq!(result, "(* 3 4)");
     }
 
@@ -84,7 +109,7 @@ mod printer_tests {
         let tkn: Box<Token> = Box::new(Token::new(TokenType::BANGEQUAL, "!=".to_string(), 0));
 
         let binary_expr = Expr::Binary(number_literal, tkn, string_literal);
-        let result = AstPrinter::default().print(&binary_expr);
+        let result = AstPrinter::default().print_expr(&binary_expr);
 
         assert_eq!(result, "(!= 65 Im string literal)".to_string())
     }
@@ -100,7 +125,7 @@ mod printer_tests {
         let grouping_expr = Box::new(Expr::Grouping(number_literal_2));
 
         let binary = Box::new(Expr::Binary(unary_expr, start_tkn, grouping_expr));
-        let result = AstPrinter::default().print(&binary);
+        let result = AstPrinter::default().print_expr(&binary);
         assert_eq!(result, "(* (- 123) (group 45.67))".to_string());
     }
 }

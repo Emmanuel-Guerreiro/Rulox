@@ -35,23 +35,24 @@ impl Lox {
     }
 
     pub fn run(&mut self, content: String) {
-        println!("Content: {content}");
-
+        println!("Content \n: {content}");
+        println!("------------------ \n");
         //Run scanner
         let mut scanner = Scanner::new(self, &content);
         let tokens = scanner.scan_tokens();
         //Run parser
         let mut parser = Parser::new(tokens);
-        let exprs = parser.parse();
-        if let Err(e) = exprs {
+        let stmts = parser.parse();
+        if let Err(e) = stmts {
             panic!("{:?}", e);
         }
+        let statements = stmts.unwrap();
 
         // let _ast_str = AstPrinter::default().print(&exprs.unwrap());
         // println!("AST -> {ast_str}");
 
+        Interpreter::default().interpret(&statements);
         //Run the code
-        Interpreter::default().interpret(&exprs.unwrap());
     }
 
     pub fn error(&mut self, line: u8, message: &str) {

@@ -246,17 +246,18 @@ impl<'a> Scanner<'a> {
         colected
     }
 
+    //Will read the whole identifier and store the lexeme to find the corresponding
+    //keyword token
     fn handle_identifier(&mut self, first_letter: char) {
-        //Will read the whole identifier and store the lexeme to find the corresponding
-        //keyword token
         let mut kwlexeme = String::from(first_letter);
         loop {
-            let c = self.advance_unwrapped();
+            let c = self.source.peek();
             if c.is_none() || !c.unwrap().is_alphanumeric() {
                 break;
             }
-
             kwlexeme += &c.unwrap().clone().to_string();
+
+            self.advance();
         }
 
         match self.keyword(&kwlexeme) {
@@ -301,7 +302,31 @@ mod scanner_test {
     };
 
     use super::Scanner;
-
+    #[test]
+    fn boolean_last_tkn() {
+        let src = String::from("true;");
+        let mut lox = Lox::default();
+        let mut scanner = Scanner::new(&mut lox, &src);
+        let tokens = scanner.scan_tokens();
+        let expected = &vec![
+            Token {
+                token_type: TokenType::TRUE,
+                lexeme: "true".to_string(),
+                line: 0,
+            },
+            Token {
+                token_type: TokenType::SEMICOLON,
+                lexeme: ";".to_string(),
+                line: 0,
+            },
+            Token {
+                token_type: TokenType::EOF,
+                lexeme: "".to_string(),
+                line: 0,
+            },
+        ];
+        assert_eq!(tokens, expected)
+    }
     #[test]
     fn scan_number() {
         let src = String::from("3.2");
