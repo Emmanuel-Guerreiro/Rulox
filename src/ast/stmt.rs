@@ -1,6 +1,7 @@
-use super::expr::Expr;
+use super::{expr::Expr, token::Token};
 #[derive(Debug)]
 pub enum Stmt {
-    PRINT(Expr),
-    EXPR(Expr),
+    PRINT(Box<Expr>),
+    EXPR(Box<Expr>),
+    VAR(Box<Token>, Option<Box<Expr>>),
 }

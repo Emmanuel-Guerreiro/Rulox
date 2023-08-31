@@ -148,11 +148,6 @@ impl<'a> Scanner<'a> {
         self.source.next().unwrap()
     }
 
-    fn advance_unwrapped(&mut self) -> Option<char> {
-        self.current += 1;
-        self.source.next()
-    }
-
     fn is_at_end(&mut self) -> bool {
         self.source.peek().is_none()
     }
@@ -469,5 +464,14 @@ mod scanner_test {
             },
         ];
         assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn variable_declaration() {
+        let src = String::from("var asd = 123;");
+        let mut lox = Lox::default();
+        let mut scanner = Scanner::new(&mut lox, &src);
+        let tokens = scanner.scan_tokens();
+        println!("{:?}", tokens)
     }
 }

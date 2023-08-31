@@ -1,7 +1,7 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, process::exit};
 
 use crate::{
-    ast::{parser::Parser, scanner::Scanner},
+    ast::{parser::Parser, printer::AstPrinter, scanner::Scanner},
     interpreter::Interpreter,
 };
 
@@ -35,7 +35,7 @@ impl Lox {
     }
 
     pub fn run(&mut self, content: String) {
-        println!("Content \n: {content}");
+        println!("Content:\n{content}");
         println!("------------------ \n");
         //Run scanner
         let mut scanner = Scanner::new(self, &content);
@@ -44,14 +44,15 @@ impl Lox {
         let mut parser = Parser::new(tokens);
         let stmts = parser.parse();
         if let Err(e) = stmts {
-            panic!("{:?}", e);
+            println!("{}", e);
+            exit(1);
         }
         let statements = stmts.unwrap();
-
-        // let _ast_str = AstPrinter::default().print(&exprs.unwrap());
+        println!("Statements: {:?}", &statements);
+        // let _ast_str = AstPrinter::default().print_program(&statements);
         // println!("AST -> {ast_str}");
 
-        Interpreter::default().interpret(&statements);
+        // Interpreter::default().interpret(&statements);
         //Run the code
     }
 

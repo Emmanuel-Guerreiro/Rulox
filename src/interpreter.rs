@@ -40,6 +40,7 @@ impl<'a> Interpreter {
                 let value = self.evauluate_expr(e)?;
                 println!("{}", value);
             }
+            _ => todo!(),
         }
 
         Ok(())

@@ -46,8 +46,9 @@ impl StmtVisitor<String> for AstPrinter {
     fn visit_stmt(&self, b: &super::stmt::Stmt) -> String {
         match b {
             //Todo: Add some kind of parenthesize for stmt
-            Stmt::EXPR(e) => self.visit_expr(e),
-            Stmt::PRINT(e) => self.visit_expr(e),
+            Stmt::EXPR(e) => self.visit_expr(&e),
+            Stmt::PRINT(e) => self.visit_expr(&e),
+            Stmt::VAR(_, _) => todo!(),
         }
     }
 }

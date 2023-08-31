@@ -1,8 +1,13 @@
 /*
 # Grammar to parse:
 
-*       program        → statement* EOF ;
-*
+*       program        → declaration* EOF ;
+
+*       declaration    → varDecl          -> This is a kind of stmt
+*                      | statement ;
+
+*       varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+
 *       statement      → exprStmt       -
                                         | -> OR
 *                      | printStmt ;    - Check this first: if next_token.tokenType == tokenType::PRINT
@@ -10,6 +15,7 @@
 *       printStmt      → "print" expression ";" ;
 
 *       exprStmt       → expression ";" ;
+
 
 *   ==================== EXPRs ====================
 
@@ -43,6 +49,8 @@
 *                                     expresion hija
 */
 
+use std::fmt::Display;
+
 use super::{
     expr::Expr,
     stmt::Stmt,
@@ -50,10 +58,16 @@ use super::{
 };
 
 #[derive(Debug)]
-//TODO: Set messages and impl Debug trait for better message
 pub enum ParserError {
     UnexpectedToken(String),
-    UnknownError,
+}
+
+impl Display for ParserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedToken(e) => write!(f, "[Error] - Parsing error: {}", e),
+        }
+    }
 }
 
 pub type ExprParserResult = Result<Expr, ParserError>;
@@ -73,7 +87,7 @@ impl<'a> Parser<'a> {
         let mut stmts: Vec<Stmt> = Vec::new();
         while !self.is_at_end() {
             //TODO: !HANDLE ERROR TO AVOID PANIC ON FIRST ERROR
-            let stmt = self.parse_stmt()?;
+            let stmt = self.declaration()?;
             stmts.push(stmt);
         }
 
@@ -89,12 +103,39 @@ impl<'a> Parser<'a> {
         self.previous()
     }
 
+    //Todo: Set the error inside this.
     pub fn consume(&mut self, tt: TokenType) -> bool {
         if tt == self.current_token().unwrap().token_type {
             self.advance();
             return true;
         }
         false
+    }
+
+    pub fn consume_advance_return(&mut self, tt: TokenType) -> Result<&Token, ParserError> {
+        //This functions is used to check that the token has some specific type, the
+        //internal lexeme for the token is ingored. Therefore, there is no check for equal value inside
+        //token types (And is necessary this weird looking function istead of the built in == )
+        let curr = self.current_token().unwrap().token_type.clone();
+        let is_eq = match (&tt, &curr) {
+            (TokenType::IDENTIFIER(_), TokenType::IDENTIFIER(_)) => true,
+            (TokenType::STRING(_), TokenType::STRING(_)) => true,
+            (TokenType::NUMBER(_), TokenType::NUMBER(_)) => true,
+            //In any other case, there is no internal vlaue for the TT
+            _ => tt == curr,
+        };
+
+        if is_eq {
+            self.advance();
+            let curr = Ok(self.previous().unwrap());
+            return curr;
+        }
+
+        Err(ParserError::UnexpectedToken(format!(
+            "Expected {:?}, got {:?}",
+            tt,
+            self.current_token().unwrap()
+        )))
     }
 
     pub fn is_at_end(&self) -> bool {
@@ -127,6 +168,23 @@ impl<'a> Parser<'a> {
 
 //Stmt parsing
 impl<'a> Parser<'a> {
+    //todo: Check if this can be merged with parse_stmt
+    //Conceptually this is a lvl over stmts, to avoid
+    //cases as if(<Expr>) <var declaration>
+    pub fn declaration(&mut self) -> StmtParserResult {
+        let curr_tkn = self.current_token();
+        if curr_tkn.is_none() {
+            return Err(ParserError::UnexpectedToken(String::from(
+                "Non expected EOF",
+            )));
+        }
+
+        match curr_tkn.unwrap().token_type {
+            TokenType::VAR => self.var_declaration(),
+            _ => self.parse_stmt(),
+        }
+    }
+
     pub fn parse_stmt(&mut self) -> StmtParserResult {
         let curr_tkn = self.current_token();
         if curr_tkn.is_none() {
@@ -151,7 +209,7 @@ impl<'a> Parser<'a> {
                 self.current_token().unwrap()
             )));
         }
-        Ok(Stmt::PRINT(expr))
+        Ok(Stmt::PRINT(Box::new(expr)))
     }
 
     fn expr_stmt(&mut self) -> StmtParserResult {
@@ -163,7 +221,42 @@ impl<'a> Parser<'a> {
                 self.current_token().unwrap()
             )));
         }
-        Ok(Stmt::EXPR(expr))
+        Ok(Stmt::EXPR(Box::new(expr)))
+    }
+
+    fn var_declaration(&mut self) -> StmtParserResult {
+        // varDecl        → "var" IDENTIFIER ( "="      expression )? ";" ;
+        //                    |         |       |            |         |
+        //                Start here -> Jump (-> Check  ->  Build)    MUST BE
+        //                                   |-----Optional------|
+        if !self.consume(TokenType::VAR) {
+            return Err(ParserError::UnexpectedToken(format!(
+                "Expected VAR, got {:?}",
+                self.current_token().unwrap().token_type
+            )));
+        }
+        println!("Pre name: {:?} ", self.current_token());
+        //There must be a name
+
+        //# This clone is ugly but works
+        let name = self
+            .consume_advance_return(TokenType::IDENTIFIER("".to_string()))
+            .cloned();
+
+        println!("Post name: {:?} ", self.current_token());
+
+        let mut initializer: Option<Box<Expr>> = None;
+        if self.consume(TokenType::EQUAL) {
+            initializer = Some(Box::new(self.expr_rule().unwrap()));
+        }
+
+        if !self.consume(TokenType::SEMICOLON) {
+            return Err(ParserError::UnexpectedToken(format!(
+                "Expected SEMICOLON, got {:?}",
+                self.current_token().unwrap().token_type
+            )));
+        }
+        Ok(Stmt::VAR(Box::new(name.unwrap()), initializer))
     }
 }
 
@@ -321,7 +414,9 @@ impl<'a> Parser<'a> {
             TokenType::NUMBER(n) => return Ok(Expr::NumberLit(*n)),
             //This clone is not the best, because a new string is being created, but i dunno how
             //to handle the borrow checker correctly
-            TokenType::STRING(s) => expr = Expr::StringLit(Box::new(s.clone())),
+            TokenType::IDENTIFIER(s) | TokenType::STRING(s) => {
+                expr = Expr::StringLit(Box::new(s.clone()))
+            }
             TokenType::LEFTPAREN => {
                 //todo:Make it more rusty
                 let internal_expr: Expr = self.expr_rule()?;
@@ -334,6 +429,7 @@ impl<'a> Parser<'a> {
                 expr = Expr::Grouping(Box::new(internal_expr));
                 //Return ther expr
             }
+
             TokenType::EOF => expr = self.expr_rule()?,
             _ => {
                 return Err(ParserError::UnexpectedToken(format!(
