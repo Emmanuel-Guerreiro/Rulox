@@ -66,6 +66,10 @@ impl ExprVisitor<String> for AstPrinter {
             Expr::NumberLit(value) => return value.to_string(),
             Expr::StringLit(value) => return value.to_string(),
             Expr::Boolean(v) => return v.to_string(),
+            Expr::Assignment(name, value) => {
+                return self.parenthesize("=", vec![&Box::new(Expr::Variable(name.clone())), value])
+            }
+            Expr::Variable(v) => return v.to_string(),
             _ => return String::from("nil"),
         }
     }

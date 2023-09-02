@@ -69,7 +69,7 @@ impl<'a> Interpreter<'a> {
         self.enviroment.define(name.lexeme.clone(), val);
         Ok(())
     }
-    fn evauluate_expr(&self, expr: &'a Expr) -> EvalRes {
+    fn evauluate_expr(&mut self, expr: &'a Expr) -> EvalRes {
         match expr {
             Expr::NumberLit(n) => return Ok(Object::NumberObj(*n)),
             //Todo: This is quite inefficient
@@ -80,6 +80,16 @@ impl<'a> Interpreter<'a> {
             Expr::Grouping(expr) => return self.evauluate_expr(expr), //This may be some kind of recursive
             Expr::Nil => return Ok(Object::NullObj),
             Expr::Variable(v) => return self.handle_variable_access(v),
+            Expr::Assignment(name, value) => self.handle_assignment(name, value),
+        }
+    }
+
+    fn handle_assignment(&mut self, name: &Box<String>, value: &'a Box<Expr>) -> EvalRes {
+        let v = self.evauluate_expr(&value)?;
+
+        match self.enviroment.assign(name, Box::new(v)) {
+            Err(e) => return Err(RuntimeError::UndefinedVariable(format!("{}", e))),
+            Ok(v) => Ok(*v),
         }
     }
 
@@ -90,7 +100,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn handle_unary(&self, operator: &Box<Token>, expr: &Box<Expr>) -> EvalRes {
+    fn handle_unary(&mut self, operator: &Box<Token>, expr: &'a Box<Expr>) -> EvalRes {
         //This should be a number
         //Can it be forced?
         let evaluated_expression = self.evauluate_expr(&expr)?;
@@ -110,7 +120,12 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn handle_binary(&self, operator: &Box<Token>, left: &Box<Expr>, right: &Box<Expr>) -> EvalRes {
+    fn handle_binary(
+        &mut self,
+        operator: &Box<Token>,
+        left: &'a Box<Expr>,
+        right: &'a Box<Expr>,
+    ) -> EvalRes {
         let left_evaluated = self.evauluate_expr(&left)?;
         let right_evaluated = self.evauluate_expr(&right)?;
 

@@ -42,6 +42,7 @@ impl Enviroment {
         Err(EnviromentError::UndefinedVariable(name.to_string()))
     }
 
+    //Add new variable to enviroment
     pub fn define(&mut self, name: String, value: Option<Box<Object>>) {
         let insert_value = match value {
             None => Box::new(Object::NullObj),
@@ -49,6 +50,17 @@ impl Enviroment {
         };
 
         self.values.insert(name, insert_value);
+    }
+
+    //Update, if exists, variable in the enviroment
+    pub fn assign(&mut self, variable: &String, value: Box<Object>) -> EnviromentResult {
+        match self.values.get(variable) {
+            None => Err(EnviromentError::UndefinedVariable(format!(
+                "Variable {} is not defined",
+                variable
+            ))),
+            Some(_) => Ok(self.values.insert(variable.clone(), value).unwrap()),
+        }
     }
 
     //Util function to debug

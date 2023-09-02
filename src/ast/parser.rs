@@ -19,7 +19,10 @@
 
 *   ==================== EXPRs ====================
 
-*		expression     → equality ;
+*		expression     → assignment ;
+
+*       assignment     → IDENTIFIER "=" assignment
+*                      | equality ;
 *
 *		equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 *                                     '-------------' -> Match
@@ -60,12 +63,16 @@ use super::{
 #[derive(Debug)]
 pub enum ParserError {
     UnexpectedToken(String),
+    NonValidAssigmentTarget,
 }
 
 impl Display for ParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnexpectedToken(e) => write!(f, "[Error] - Parsing error: {}", e),
+            Self::NonValidAssigmentTarget => {
+                write!(f, "[Error] - Parsing error: Non valid assigment target")
+            }
         }
     }
 }
@@ -211,9 +218,9 @@ impl<'a> Parser<'a> {
         Ok(Stmt::PRINT(Box::new(expr)))
     }
 
+    //exprStmt       → expression ";" ;
     fn expr_stmt(&mut self) -> StmtParserResult {
         let expr = self.expr_rule()?;
-
         if !self.consume(TokenType::SEMICOLON) {
             return Err(ParserError::UnexpectedToken(format!(
                 "Expected SEMICOLON (;), got {:?}",
@@ -258,13 +265,40 @@ impl<'a> Parser<'a> {
 
 //Exprs parsing
 impl<'a> Parser<'a> {
+    // expression     → assignment ;
     pub fn expr_rule(&mut self) -> ExprParserResult {
         if self.is_at_end() {
             return Ok(Expr::Nil);
         }
-        self.equality_rule()
+        self.assignment_rule()
     }
 
+    //assignment     → IDENTIFIER "=" assignment
+    //               | equality ;
+    pub fn assignment_rule(&mut self) -> ExprParserResult {
+        //This can be a equality_expr or an identifier result
+        let e = self.equality_rule()?;
+
+        let curr = self.current_token();
+
+        if curr.is_none() {
+            return Err(ParserError::UnexpectedToken(String::from("Unexpected EOF")));
+        }
+
+        match curr.unwrap().token_type {
+            TokenType::EQUAL => {
+                self.advance();
+                let assigment_value = self.assignment_rule()?;
+                match e {
+                    Expr::Variable(name) => {
+                        return Ok(Expr::Assignment(name, Box::new(assigment_value)))
+                    }
+                    _ => return Err(ParserError::NonValidAssigmentTarget),
+                }
+            }
+            _ => return Ok(e),
+        }
+    }
     //equality       → comparison ( ( "!=" | "==" ) comparison )* ;
     //                              '-------------' -> Match
     //                            '-----------------------------'-> Loop
@@ -459,6 +493,27 @@ mod parser_tests {
             .unwrap();
         let printed = AstPrinter::default().print_program(&expr);
         assert_eq!(printed, "32");
+    }
+
+    #[test]
+    fn parse_assignment() {
+        let idnt_tkn = Token::new(
+            token::TokenType::IDENTIFIER("x".to_string()),
+            "x".to_string(),
+            1,
+        );
+
+        let equal_tkn = Token::new(token::TokenType::EQUAL, "=".to_string(), 1);
+        let expr = Token::new(token::TokenType::NUMBER(3.0), "3.0".to_string(), 1);
+
+        let semicolon_tkn = Token::new(token::TokenType::SEMICOLON, ";".to_string(), 1);
+        let eof_tkn = Token::new(token::TokenType::EOF, "eof".to_string(), 1);
+
+        let expr = Parser::new(&vec![idnt_tkn, equal_tkn, expr, semicolon_tkn, eof_tkn])
+            .assignment_rule()
+            .unwrap();
+        let printed = AstPrinter::default().print_expr(&expr);
+        println!("Printed: {printed}");
     }
 
     #[test]
