@@ -1,11 +1,12 @@
 mod ast;
+mod enviroment;
+pub mod interpreter;
 mod lox;
 mod object;
 mod tests;
-use std::env;
-pub mod interpreter;
 
 use crate::lox::Lox;
+use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

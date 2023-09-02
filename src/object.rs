@@ -38,7 +38,7 @@ impl Display for Object {
             Object::BoolObj(v) => f.write_fmt(format_args!("{}", v.to_string())),
             Object::NumberObj(v) => f.write_fmt(format_args!("{}", v)),
             Object::StringObj(v) => f.write_fmt(format_args!("{}", v)),
-            Object::NullObj => f.write_str(""),
+            Object::NullObj => f.write_str("Nil"),
         }
     }
 }

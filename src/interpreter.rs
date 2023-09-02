@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     ast::{expr::Expr, stmt::Stmt, token::Token, token::TokenType},
+    enviroment::{self, Enviroment},
     object::Object,
 };
 #[derive(Debug, PartialEq)]
@@ -9,21 +10,24 @@ pub enum RuntimeError {
     TypeError(String),
     UnknownError,
     UnknownExpression(String),
+    UndefinedVariable(String),
 }
 
-pub struct Interpreter;
+pub struct Interpreter<'a> {
+    enviroment: &'a mut Enviroment,
+}
 
-impl Default for Interpreter {
-    fn default() -> Self {
-        Self {}
+impl<'a> Interpreter<'a> {
+    pub fn new(enviroment: &'a mut Enviroment) -> Self {
+        Self { enviroment }
     }
 }
 
 type EvalRes = Result<Object, RuntimeError>;
 type ExcecuteStmtRes = Result<(), RuntimeError>;
 
-impl<'a> Interpreter {
-    pub fn interpret(&self, stmts: &'a Vec<Stmt>) {
+impl<'a> Interpreter<'a> {
+    pub fn interpret(&mut self, stmts: &'a Vec<Stmt>) {
         for s in stmts.iter() {
             if let Err(e) = self.execute_stmt(s) {
                 println!("{:?}", e);
@@ -32,7 +36,7 @@ impl<'a> Interpreter {
         }
     }
 
-    fn execute_stmt(&self, stmt: &'a Stmt) -> ExcecuteStmtRes {
+    fn execute_stmt(&mut self, stmt: &'a Stmt) -> ExcecuteStmtRes {
         match stmt {
             //Todo: Ingore value?
             Stmt::EXPR(e) => _ = self.evauluate_expr(e),
@@ -40,12 +44,31 @@ impl<'a> Interpreter {
                 let value = self.evauluate_expr(e)?;
                 println!("{}", value);
             }
-            _ => todo!(),
-        }
+            Stmt::VAR(name, declaration) => self.evaluate_declaration(name, declaration)?,
+            // _ => todo!(),
+        };
 
         Ok(())
     }
 
+    fn evaluate_declaration(
+        &mut self,
+        name: &'a Box<Token>,
+        declaration: &'a Option<Box<Expr>>,
+    ) -> ExcecuteStmtRes {
+        // let val: Option<&'a Object> = match declaration {
+        //     None => None,
+        //     Some(expr) => self.evauluate_expr(expr),
+        // };
+        let mut val: Option<Box<Object>> = None;
+        if let Some(e) = declaration {
+            let x = self.evauluate_expr(e)?;
+            val = Some(Box::new(x));
+        }
+
+        self.enviroment.define(name.lexeme.clone(), val);
+        Ok(())
+    }
     fn evauluate_expr(&self, expr: &'a Expr) -> EvalRes {
         match expr {
             Expr::NumberLit(n) => return Ok(Object::NumberObj(*n)),
@@ -56,6 +79,14 @@ impl<'a> Interpreter {
             Expr::Boolean(v) => return Ok(Object::BoolObj(*v)),
             Expr::Grouping(expr) => return self.evauluate_expr(expr), //This may be some kind of recursive
             Expr::Nil => return Ok(Object::NullObj),
+            Expr::Variable(v) => return self.handle_variable_access(v),
+        }
+    }
+
+    fn handle_variable_access(&self, name: &Box<String>) -> EvalRes {
+        match self.enviroment.get(&name) {
+            Ok(v) => return Ok(*v),
+            Err(e) => return Err(RuntimeError::UndefinedVariable(format!("{}", e))),
         }
     }
 

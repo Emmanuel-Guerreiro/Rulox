@@ -202,7 +202,6 @@ impl<'a> Parser<'a> {
     fn print_stmt(&mut self) -> StmtParserResult {
         self.advance();
         let expr = self.expr_rule()?;
-
         if !self.consume(TokenType::SEMICOLON) {
             return Err(ParserError::UnexpectedToken(format!(
                 "Expected SEMICOLON, got {:?}",
@@ -235,15 +234,12 @@ impl<'a> Parser<'a> {
                 self.current_token().unwrap().token_type
             )));
         }
-        println!("Pre name: {:?} ", self.current_token());
         //There must be a name
 
         //# This clone is ugly but works
         let name = self
             .consume_advance_return(TokenType::IDENTIFIER("".to_string()))
             .cloned();
-
-        println!("Post name: {:?} ", self.current_token());
 
         let mut initializer: Option<Box<Expr>> = None;
         if self.consume(TokenType::EQUAL) {
@@ -414,9 +410,8 @@ impl<'a> Parser<'a> {
             TokenType::NUMBER(n) => return Ok(Expr::NumberLit(*n)),
             //This clone is not the best, because a new string is being created, but i dunno how
             //to handle the borrow checker correctly
-            TokenType::IDENTIFIER(s) | TokenType::STRING(s) => {
-                expr = Expr::StringLit(Box::new(s.clone()))
-            }
+            TokenType::STRING(s) => expr = Expr::StringLit(Box::new(s.clone())),
+            TokenType::IDENTIFIER(s) => expr = Expr::Variable(Box::new(s.clone())),
             TokenType::LEFTPAREN => {
                 //todo:Make it more rusty
                 let internal_expr: Expr = self.expr_rule()?;
@@ -429,7 +424,6 @@ impl<'a> Parser<'a> {
                 expr = Expr::Grouping(Box::new(internal_expr));
                 //Return ther expr
             }
-
             TokenType::EOF => expr = self.expr_rule()?,
             _ => {
                 return Err(ParserError::UnexpectedToken(format!(

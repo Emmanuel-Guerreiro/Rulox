@@ -2,6 +2,7 @@ use std::{fs, path::Path, process::exit};
 
 use crate::{
     ast::{parser::Parser, printer::AstPrinter, scanner::Scanner},
+    enviroment::Enviroment,
     interpreter::Interpreter,
 };
 
@@ -48,11 +49,14 @@ impl Lox {
             exit(1);
         }
         let statements = stmts.unwrap();
-        println!("Statements: {:?}", &statements);
+        // println!("Statements: {:?}", &statements);
         // let _ast_str = AstPrinter::default().print_program(&statements);
         // println!("AST -> {ast_str}");
 
-        // Interpreter::default().interpret(&statements);
+        let mut enviroment = Enviroment::new();
+        //todo: Why this?
+        Interpreter::new(&mut enviroment).interpret(&statements);
+        // enviroment.print_status();
         //Run the code
     }
 

@@ -3,5 +3,5 @@ use super::{expr::Expr, token::Token};
 pub enum Stmt {
     PRINT(Box<Expr>),
     EXPR(Box<Expr>),
-    VAR(Box<Token>, Option<Box<Expr>>),
+    VAR(Box<Token>, Option<Box<Expr>>), //Variable (This token contains tt=declaration), declaration
 }

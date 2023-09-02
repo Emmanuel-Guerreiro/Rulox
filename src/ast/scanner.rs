@@ -255,8 +255,9 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
 
+        let lexeme = kwlexeme.clone();
         match self.keyword(&kwlexeme) {
-            None => self.add_token(TokenType::IDENTIFIER(kwlexeme), String::from("")),
+            None => self.add_token(TokenType::IDENTIFIER(kwlexeme), lexeme),
             Some(tt) => self.add_token(tt, kwlexeme),
         }
     }

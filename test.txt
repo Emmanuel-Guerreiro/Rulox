@@ -1,2 +1,2 @@
-print 4
-var x = 3;
+var x = (!true == false);
+print x;
