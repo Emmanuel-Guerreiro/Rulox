@@ -8,14 +8,17 @@
 
 *       varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 
+*   ==================== STMTs ====================
+
 *       statement      → exprStmt       -
-                                        | -> OR
-*                      | printStmt ;    - Check this first: if next_token.tokenType == tokenType::PRINT
-*
+*                      | printStmt ;    | Match the option
+*                      | blockStmt ;    -
+
 *       printStmt      → "print" expression ";" ;
 
 *       exprStmt       → expression ";" ;
 
+*       blockStmt      → "{" declaration* "}" ";" In fact it is kind of a subprogram. But this notation seems more clear
 
 *   ==================== EXPRs ====================
 
@@ -202,8 +205,31 @@ impl<'a> Parser<'a> {
 
         match curr_tkn.unwrap().token_type {
             TokenType::PRINT => self.print_stmt(),
+            TokenType::LEFTBRACE => self.block_stmt(),
             _ => self.expr_stmt(),
         }
+    }
+
+    fn block_stmt(&mut self) -> StmtParserResult {
+        //Consume the starting {
+        self.advance();
+        let mut internal_stmts: Vec<Box<Stmt>> = Vec::new();
+
+        while !self.consume(TokenType::RIGHTBRACE) && !self.is_at_end() {
+            let x = self.declaration()?;
+            internal_stmts.push(Box::new(x));
+        }
+
+        //  The compiler complains about this code. It insists that is unreachable
+        //  im not sure about that, but im not that smart either
+
+        // if !self.consume(TokenType::RIGHTBRACE) {
+        //     return return Err(ParserError::UnexpectedToken(format!(
+        //         "Expected RIGHTBRACE, got {:?}",
+        //         self.current_token().unwrap()
+        //     )));
+
+        Ok(Stmt::BLOCK(internal_stmts))
     }
 
     fn print_stmt(&mut self) -> StmtParserResult {

@@ -49,6 +49,7 @@ impl StmtVisitor<String> for AstPrinter {
             Stmt::EXPR(e) => self.visit_expr(&e),
             Stmt::PRINT(e) => self.visit_expr(&e),
             Stmt::VAR(_, _) => todo!(),
+            Stmt::BLOCK(_) => todo!(),
         }
     }
 }

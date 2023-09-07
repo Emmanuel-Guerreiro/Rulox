@@ -1,70 +1,107 @@
-use crate::object::Object;
-use std::{collections::HashMap, fmt::Display};
+use crate::{interpreter::RuntimeError, object::Object};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-#[derive(Debug, PartialEq)]
-pub enum EnviromentError {
-    UndefinedVariable(String),
-    UnknownError,
+//This is an ugly solution to the difficulties of building LLs in rust
+type VarContent = Object;
+type EnviromentResult = Result<VarContent, RuntimeError>;
+type EnviromentOption = Option<VarContent>;
+#[derive(Debug, Default)]
+pub struct EnvironmentInner {
+    locals: HashMap<String, VarContent>,
 }
 
-impl Display for EnviromentError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EnviromentError::UndefinedVariable(s) => {
-                write!(f, "Variable {} is undefined", s)
-            }
-            Self::UnknownError => {
-                write!(f, "Unkown error with scopes")
-            }
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct Environment {
+    envs: Vec<Rc<RefCell<EnvironmentInner>>>,
+    curr: usize,
 }
 
-type VarContent = Box<Object>;
-type EnviromentResult<'a> = Result<VarContent, EnviromentError>;
-
-pub struct Enviroment {
-    values: HashMap<String, VarContent>,
-}
-
-impl Enviroment {
+impl Environment {
     pub fn new() -> Self {
         Self {
-            values: HashMap::new(),
+            envs: Vec::from([Rc::new(RefCell::new(EnvironmentInner::default()))]),
+            curr: 0,
         }
     }
 
-    pub fn get(&self, name: &String) -> EnviromentResult {
-        if let Some(v) = self.values.get(name) {
-            // This is ugly
-            return Ok(v.clone());
-        }
-        Err(EnviromentError::UndefinedVariable(name.to_string()))
+    //Will create a new local env to the stack, and move the pointer to it.
+    //Any following variable operation will start with it
+    pub fn add_new_local(&mut self) -> Result<(), RuntimeError> {
+        let new_env = Rc::new(RefCell::new(EnvironmentInner::default()));
+        self.envs.push(new_env);
+        //The last one (The one at the top) is the innermost scope
+        self.curr = self.envs.len() - 1;
+        // print!("New local -> ");
+        // self.print_status();
+        Ok(())
     }
 
-    //Add new variable to enviroment
-    pub fn define(&mut self, name: String, value: Option<Box<Object>>) {
-        let insert_value = match value {
-            None => Box::new(Object::NullObj),
-            Some(o) => o,
+    pub fn remove_local(&mut self) -> Result<(), RuntimeError> {
+        if self.envs.len() == 1 {
+            return Err(RuntimeError::ScopeError(Some(String::from(
+                "Cant remove the global scope",
+            ))));
+        }
+
+        self.envs.pop();
+        //Reset the current scope to the innermost
+        self.curr += self.envs.len();
+        Ok(())
+    }
+
+    pub fn define(&mut self, name: &String, value: Option<Object>) -> Result<(), RuntimeError> {
+        let insertion_value = match value {
+            Some(v) => v,
+            None => Object::NullObj,
         };
 
-        self.values.insert(name, insert_value);
+        self.envs[self.curr]
+            .borrow_mut()
+            .locals
+            .insert(name.clone(), insertion_value);
+        // print!("Define variable -> ");
+        // self.print_status();
+        Ok(())
     }
 
-    //Update, if exists, variable in the enviroment
-    pub fn assign(&mut self, variable: &String, value: Box<Object>) -> EnviromentResult {
-        match self.values.get(variable) {
-            None => Err(EnviromentError::UndefinedVariable(format!(
-                "Variable {} is not defined",
-                variable
-            ))),
-            Some(_) => Ok(self.values.insert(variable.clone(), value).unwrap()),
+    pub fn assign(&mut self, name: &String, value: Object) -> EnviromentResult {
+        let inner = self.envs[self.curr].borrow();
+        while self.curr < self.envs.len() {
+            match inner.locals.get(name) {
+                Some(_) => match self.envs[self.curr]
+                    .borrow_mut()
+                    .locals
+                    .insert(name.clone(), value)
+                {
+                    None => return Err(RuntimeError::UndefinedVariable(name.clone())),
+                    Some(a) => {
+                        // self.print_status();
+                        return Ok(a);
+                    }
+                },
+                None => {
+                    if self.curr == 0 || self.envs.len() == 1 {
+                        return Err(RuntimeError::UndefinedVariable(name.clone()));
+                    }
+                    self.curr -= 1;
+                }
+            }
         }
+        return Err(RuntimeError::UndefinedVariable(name.clone()));
     }
 
-    //Util function to debug
+    pub fn get(&self, name: &String) -> EnviromentOption {
+        let loc_curr = self.envs.len();
+        for l in (0..loc_curr).rev() {
+            // println!("Envs: {:?}", self.envs[l]);
+            if let Some(v) = self.envs[l].borrow().locals.get(name) {
+                return Some(v.clone());
+            }
+        }
+        None
+    }
+
     pub fn print_status(&self) {
-        println!("{:?}", self.values);
+        println!("Enviroment status: {:?}", self.envs);
     }
 }

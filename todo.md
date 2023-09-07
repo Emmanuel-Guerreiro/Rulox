@@ -6,6 +6,8 @@
 
 - [ ] Const first variables
 
+- [ ] Static types? This sounds quite challenging
+
 ## Improve
 
 - [] Parsing errors

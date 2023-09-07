@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     ast::{expr::Expr, stmt::Stmt, token::Token, token::TokenType},
-    enviroment::{self, Enviroment},
+    enviroment::Environment,
     object::Object,
 };
 #[derive(Debug, PartialEq)]
@@ -11,14 +11,15 @@ pub enum RuntimeError {
     UnknownError,
     UnknownExpression(String),
     UndefinedVariable(String),
+    ScopeError(Option<String>),
 }
 
 pub struct Interpreter<'a> {
-    enviroment: &'a mut Enviroment,
+    enviroment: &'a mut Environment,
 }
 
 impl<'a> Interpreter<'a> {
-    pub fn new(enviroment: &'a mut Enviroment) -> Self {
+    pub fn new(enviroment: &'a mut Environment) -> Self {
         Self { enviroment }
     }
 }
@@ -29,9 +30,12 @@ type ExcecuteStmtRes = Result<(), RuntimeError>;
 impl<'a> Interpreter<'a> {
     pub fn interpret(&mut self, stmts: &'a Vec<Stmt>) {
         for s in stmts.iter() {
-            if let Err(e) = self.execute_stmt(s) {
-                println!("{:?}", e);
-                break;
+            match self.execute_stmt(s) {
+                Err(e) => {
+                    println!("{:?}", e);
+                    break;
+                }
+                Ok(_) => {}
             }
         }
     }
@@ -39,15 +43,45 @@ impl<'a> Interpreter<'a> {
     fn execute_stmt(&mut self, stmt: &'a Stmt) -> ExcecuteStmtRes {
         match stmt {
             //Todo: Ingore value?
-            Stmt::EXPR(e) => _ = self.evauluate_expr(e),
-            Stmt::PRINT(e) => {
-                let value = self.evauluate_expr(e)?;
-                println!("{}", value);
+            Stmt::EXPR(e) => {
+                _ = self.evauluate_expr(e);
+                return Ok(());
             }
-            Stmt::VAR(name, declaration) => self.evaluate_declaration(name, declaration)?,
-            // _ => todo!(),
-        };
+            Stmt::PRINT(e) => match self.evauluate_expr(e) {
+                Ok(value) => {
+                    println!("{}", value);
+                    return Ok(());
+                }
+                Err(e) => {
+                    panic!("{:?}", e);
+                }
+            },
+            Stmt::VAR(name, declaration) => {
+                self.evaluate_declaration(name, declaration)?;
+                return Ok(());
+            }
+            Stmt::BLOCK(stmts) => {
+                _ = self.excecute_block(stmts);
+                return Ok(());
+            } // _ => todo!(),
+        }
+    }
 
+    fn excecute_block(&mut self, stmts: &'a Vec<Box<Stmt>>) -> ExcecuteStmtRes {
+        //Initialize the new local scope for the block.
+        //Any new variable will be added to the current scope,
+        //But assignations and gets will try in the local,
+        //and,on fail, will try one level above (Until global)
+        self.enviroment.add_new_local()?;
+
+        for stmt in stmts {
+            if let Err(err) = self.execute_stmt(stmt) {
+                self.enviroment.remove_local()?;
+                return Err(err);
+            }
+        }
+
+        self.enviroment.remove_local()?;
         Ok(())
     }
 
@@ -56,17 +90,13 @@ impl<'a> Interpreter<'a> {
         name: &'a Box<Token>,
         declaration: &'a Option<Box<Expr>>,
     ) -> ExcecuteStmtRes {
-        // let val: Option<&'a Object> = match declaration {
-        //     None => None,
-        //     Some(expr) => self.evauluate_expr(expr),
-        // };
-        let mut val: Option<Box<Object>> = None;
+        let mut val: Option<Object> = None;
         if let Some(e) = declaration {
             let x = self.evauluate_expr(e)?;
-            val = Some(Box::new(x));
+            val = Some(x);
         }
 
-        self.enviroment.define(name.lexeme.clone(), val);
+        self.enviroment.define(&name.lexeme.clone(), val)?;
         Ok(())
     }
     fn evauluate_expr(&mut self, expr: &'a Expr) -> EvalRes {
@@ -87,16 +117,16 @@ impl<'a> Interpreter<'a> {
     fn handle_assignment(&mut self, name: &Box<String>, value: &'a Box<Expr>) -> EvalRes {
         let v = self.evauluate_expr(&value)?;
 
-        match self.enviroment.assign(name, Box::new(v)) {
-            Err(e) => return Err(RuntimeError::UndefinedVariable(format!("{}", e))),
-            Ok(v) => Ok(*v),
-        }
+        let r = self.enviroment.assign(name, v)?;
+        Ok(r)
     }
 
     fn handle_variable_access(&self, name: &Box<String>) -> EvalRes {
         match self.enviroment.get(&name) {
-            Ok(v) => return Ok(*v),
-            Err(e) => return Err(RuntimeError::UndefinedVariable(format!("{}", e))),
+            None => {
+                return Err(RuntimeError::UndefinedVariable(name.to_string()));
+            }
+            Some(r) => Ok(r.clone()),
         }
     }
 

@@ -2,7 +2,7 @@ use std::{fs, path::Path, process::exit};
 
 use crate::{
     ast::{parser::Parser, printer::AstPrinter, scanner::Scanner},
-    enviroment::Enviroment,
+    enviroment::Environment,
     interpreter::Interpreter,
 };
 
@@ -53,7 +53,8 @@ impl Lox {
         // let _ast_str = AstPrinter::default().print_program(&statements);
         // println!("AST -> {ast_str}");
 
-        let mut enviroment = Enviroment::new();
+        //Initialized as default, because there is no outer scope for this global enviroment
+        let mut enviroment = Environment::new();
         //todo: Why this?
         Interpreter::new(&mut enviroment).interpret(&statements);
         // enviroment.print_status();

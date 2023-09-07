@@ -5,8 +5,8 @@ use std::fmt::Debug;
 pub enum TokenType {
     LEFTPAREN, // (
     RIGHTPAREN,
-    LEFTBRACE,
-    RIGHTBRACE,
+    LEFTBRACE,  // {
+    RIGHTBRACE, // }
     COMMA,
     DOT,
     MINUS, //Sub
