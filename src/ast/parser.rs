@@ -29,9 +29,13 @@
 *		expression     → assignment ;
 
 *       assignment     → IDENTIFIER "=" assignment
-*                      | equality ;
+*                      | logic_or ;
 *
-*		equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+*       logic_or       → logic_and ("or" logic_and)* ;
+*
+*       logic_and      → equality ("and" equality)* ;
+*
+*       equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 *                                     '-------------' -> Match
 *                                   '-----------------------------' -> While || Undf
 *
@@ -331,10 +335,10 @@ impl<'a> Parser<'a> {
     }
 
     //assignment     → IDENTIFIER "=" assignment
-    //               | equality ;
+    //               | logic_or ;
     pub fn assignment_rule(&mut self) -> ExprParserResult {
         //This can be a equality_expr or an identifier result
-        let e = self.equality_rule()?;
+        let e = self.logic_or()?;
 
         let curr = self.current_token();
 
@@ -356,6 +360,56 @@ impl<'a> Parser<'a> {
             _ => return Ok(e),
         }
     }
+    // logic_or       → logic_and ("or" logic_and)* ;
+    pub fn logic_or(&mut self) -> ExprParserResult {
+        let left_expr = self.logic_and()?;
+        let curr = self.current_token();
+
+        if curr.is_none() {
+            return Err(ParserError::UnexpectedToken(String::from("Unexpected EOF")));
+        }
+
+        match curr.unwrap().token_type {
+            TokenType::OR => {
+                let operator = curr.unwrap().clone();
+                self.advance();
+                let right_expr = self.logic_and()?;
+
+                Ok(Expr::Logical(
+                    Box::new(left_expr),
+                    Box::new(operator),
+                    Box::new(right_expr),
+                ))
+            }
+            _ => Ok(left_expr),
+        }
+    }
+
+    // logic_and      → equality ("and" equality)* ;
+    pub fn logic_and(&mut self) -> ExprParserResult {
+        let left = self.equality_rule()?;
+
+        let curr = self.current_token();
+
+        if curr.is_none() {
+            return Err(ParserError::UnexpectedToken(String::from("Unexpected EOF")));
+        }
+
+        match curr.unwrap().token_type {
+            TokenType::AND => {
+                let operator = curr.unwrap().clone();
+                self.advance();
+                let right = self.equality_rule()?;
+                return Ok(Expr::Logical(
+                    Box::new(left),
+                    Box::new(operator),
+                    Box::new(right),
+                ));
+            }
+            _ => return Ok(left),
+        }
+    }
+
     //equality       → comparison ( ( "!=" | "==" ) comparison )* ;
     //                              '-------------' -> Match
     //                            '-----------------------------'-> Loop

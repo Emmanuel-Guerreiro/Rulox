@@ -267,6 +267,7 @@ impl<'a> Scanner<'a> {
         use std::collections::HashMap;
         let mut keywords: HashMap<&str, TokenType> = HashMap::new();
         keywords.insert("and", TokenType::AND);
+        keywords.insert("or", TokenType::OR);
         keywords.insert("class", TokenType::CLASS);
         keywords.insert("else", TokenType::ELSE);
         keywords.insert("false", TokenType::FALSE);
@@ -274,7 +275,6 @@ impl<'a> Scanner<'a> {
         keywords.insert("for", TokenType::FOR);
         keywords.insert("if", TokenType::IF);
         keywords.insert("nil", TokenType::NIL);
-        keywords.insert("or", TokenType::OR);
         keywords.insert("print", TokenType::PRINT);
         keywords.insert("return", TokenType::RETURN);
         keywords.insert("super", TokenType::SUPER);

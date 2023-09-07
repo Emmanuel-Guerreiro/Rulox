@@ -10,5 +10,6 @@ pub enum Expr {
     Variable(Box<String>),                    //name | This is used when the variable is referenced
     Assignment(Box<String>, Box<Expr>),       //name, value
     Boolean(bool),
+    Logical(Box<Expr>, Box<Token>, Box<Expr>), // expr && expr \ expr || expr
     Nil,
 }

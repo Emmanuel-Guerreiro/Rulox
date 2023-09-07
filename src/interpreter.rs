@@ -44,10 +44,10 @@ impl<'a> Interpreter<'a> {
         match stmt {
             //Todo: Ingore value?
             Stmt::EXPR(e) => {
-                _ = self.evauluate_expr(e);
+                _ = self.evaluate_expr(e);
                 return Ok(());
             }
-            Stmt::PRINT(e) => match self.evauluate_expr(e) {
+            Stmt::PRINT(e) => match self.evaluate_expr(e) {
                 Ok(value) => {
                     println!("{}", value);
                     return Ok(());
@@ -77,7 +77,7 @@ impl<'a> Interpreter<'a> {
         then: &'a Box<Stmt>, //This is a block
         else_: &'a Option<Box<Stmt>>,
     ) -> ExcecuteStmtRes {
-        let condition_value = self.evauluate_expr(&condition)?;
+        let condition_value = self.evaluate_expr(&condition)?;
         if condition_value.is_truthy() {
             self.execute_stmt(&then)?;
         } else if let Some(else_block) = else_ {
@@ -111,14 +111,14 @@ impl<'a> Interpreter<'a> {
     ) -> ExcecuteStmtRes {
         let mut val: Option<Object> = None;
         if let Some(e) = declaration {
-            let x = self.evauluate_expr(e)?;
+            let x = self.evaluate_expr(e)?;
             val = Some(x);
         }
 
         self.enviroment.define(&name.lexeme.clone(), val)?;
         Ok(())
     }
-    fn evauluate_expr(&mut self, expr: &'a Expr) -> EvalRes {
+    fn evaluate_expr(&mut self, expr: &'a Expr) -> EvalRes {
         match expr {
             Expr::NumberLit(n) => return Ok(Object::NumberObj(*n)),
             //Todo: This is quite inefficient
@@ -126,15 +126,45 @@ impl<'a> Interpreter<'a> {
             Expr::Unary(operator, expr) => return self.handle_unary(operator, expr),
             Expr::Binary(left, op, right) => return self.handle_binary(op, left, right),
             Expr::Boolean(v) => return Ok(Object::BoolObj(*v)),
-            Expr::Grouping(expr) => return self.evauluate_expr(expr), //This may be some kind of recursive
+            Expr::Grouping(expr) => return self.evaluate_expr(expr), //This may be some kind of recursive
             Expr::Nil => return Ok(Object::NullObj),
             Expr::Variable(v) => return self.handle_variable_access(v),
             Expr::Assignment(name, value) => self.handle_assignment(name, value),
+            Expr::Logical(left, operator, right) => self.handle_logical(left, operator, right),
+        }
+    }
+
+    fn handle_logical(
+        &mut self,
+        left: &'a Box<Expr>,
+        operator: &Box<Token>,
+        right: &'a Box<Expr>,
+    ) -> EvalRes {
+        let left_expr_value = self.evaluate_expr(left)?;
+        match operator.token_type {
+            TokenType::AND => {
+                if !left_expr_value.is_truthy() {
+                    return Ok(left_expr_value);
+                }
+                return self.evaluate_expr(right);
+            }
+            TokenType::OR => {
+                if left_expr_value.is_truthy() {
+                    return Ok(left_expr_value);
+                }
+                return self.evaluate_expr(&right);
+            }
+            _ => {
+                return Err(RuntimeError::UnknownExpression(format!(
+                    "Expected AND or OR operators, got {:?}",
+                    operator.token_type
+                )))
+            }
         }
     }
 
     fn handle_assignment(&mut self, name: &Box<String>, value: &'a Box<Expr>) -> EvalRes {
-        let v = self.evauluate_expr(&value)?;
+        let v = self.evaluate_expr(&value)?;
 
         let r = self.enviroment.assign(name, v)?;
         Ok(r)
@@ -152,7 +182,7 @@ impl<'a> Interpreter<'a> {
     fn handle_unary(&mut self, operator: &Box<Token>, expr: &'a Box<Expr>) -> EvalRes {
         //This should be a number
         //Can it be forced?
-        let evaluated_expression = self.evauluate_expr(&expr)?;
+        let evaluated_expression = self.evaluate_expr(&expr)?;
         match operator.token_type {
             TokenType::MINUS => {
                 let a = (-evaluated_expression)?;
@@ -175,8 +205,8 @@ impl<'a> Interpreter<'a> {
         left: &'a Box<Expr>,
         right: &'a Box<Expr>,
     ) -> EvalRes {
-        let left_evaluated = self.evauluate_expr(&left)?;
-        let right_evaluated = self.evauluate_expr(&right)?;
+        let left_evaluated = self.evaluate_expr(&left)?;
+        let right_evaluated = self.evaluate_expr(&right)?;
 
         let res = match operator.token_type {
             TokenType::BANGEQUAL => left_evaluated.neq(&right_evaluated),
