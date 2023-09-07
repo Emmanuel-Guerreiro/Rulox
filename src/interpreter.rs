@@ -63,8 +63,27 @@ impl<'a> Interpreter<'a> {
             Stmt::BLOCK(stmts) => {
                 _ = self.excecute_block(stmts);
                 return Ok(());
+            }
+            Stmt::IF(condition, then, else_) => {
+                self.excecute_if(condition, then, else_)?;
+                Ok(())
             } // _ => todo!(),
         }
+    }
+
+    fn excecute_if(
+        &mut self,
+        condition: &'a Box<Expr>,
+        then: &'a Box<Stmt>, //This is a block
+        else_: &'a Option<Box<Stmt>>,
+    ) -> ExcecuteStmtRes {
+        let condition_value = self.evauluate_expr(&condition)?;
+        if condition_value.is_truthy() {
+            self.execute_stmt(&then)?;
+        } else if let Some(else_block) = else_ {
+            self.execute_stmt(&else_block)?;
+        }
+        Ok(())
     }
 
     fn excecute_block(&mut self, stmts: &'a Vec<Box<Stmt>>) -> ExcecuteStmtRes {

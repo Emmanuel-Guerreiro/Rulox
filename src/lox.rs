@@ -53,12 +53,9 @@ impl Lox {
         // let _ast_str = AstPrinter::default().print_program(&statements);
         // println!("AST -> {ast_str}");
 
-        //Initialized as default, because there is no outer scope for this global enviroment
         let mut enviroment = Environment::new();
-        //todo: Why this?
-        Interpreter::new(&mut enviroment).interpret(&statements);
-        // enviroment.print_status();
         //Run the code
+        Interpreter::new(&mut enviroment).interpret(&statements);
     }
 
     pub fn error(&mut self, line: u8, message: &str) {

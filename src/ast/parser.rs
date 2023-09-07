@@ -11,6 +11,7 @@
 *   ==================== STMTs ====================
 
 *       statement      → exprStmt       -
+*                      | ifStmt         |
 *                      | printStmt ;    | Match the option
 *                      | blockStmt ;    -
 
@@ -19,6 +20,9 @@
 *       exprStmt       → expression ";" ;
 
 *       blockStmt      → "{" declaration* "}" ";" In fact it is kind of a subprogram. But this notation seems more clear
+
+        TODO: Add support of if-else
+*       ifStmt         → "if" "(" expression ")" blockStmt ("else" blockStmt)?
 
 *   ==================== EXPRs ====================
 
@@ -55,7 +59,7 @@
 *                                     expresion hija
 */
 
-use std::fmt::Display;
+use std::fmt::{format, Display};
 
 use super::{
     expr::Expr,
@@ -123,19 +127,13 @@ impl<'a> Parser<'a> {
     }
 
     pub fn consume_advance_return(&mut self, tt: TokenType) -> Result<&Token, ParserError> {
+        //TODO: IMpl eq for TT
         //This functions is used to check that the token has some specific type, the
         //internal lexeme for the token is ingored. Therefore, there is no check for equal value inside
         //token types (And is necessary this weird looking function istead of the built in == )
         let curr = self.current_token().unwrap().token_type.clone();
-        let is_eq = match (&tt, &curr) {
-            (TokenType::IDENTIFIER(_), TokenType::IDENTIFIER(_)) => true,
-            (TokenType::STRING(_), TokenType::STRING(_)) => true,
-            (TokenType::NUMBER(_), TokenType::NUMBER(_)) => true,
-            //In any other case, there is no internal vlaue for the TT
-            _ => tt == curr,
-        };
 
-        if is_eq {
+        if tt.week_comparison(&curr) {
             self.advance();
             let curr = Ok(self.previous().unwrap());
             return curr;
@@ -178,9 +176,6 @@ impl<'a> Parser<'a> {
 
 //Stmt parsing
 impl<'a> Parser<'a> {
-    //todo: Check if this can be merged with parse_stmt
-    //Conceptually this is a lvl over stmts, to avoid
-    //cases as if(<Expr>) <var declaration>
     pub fn declaration(&mut self) -> StmtParserResult {
         let curr_tkn = self.current_token();
         if curr_tkn.is_none() {
@@ -206,6 +201,7 @@ impl<'a> Parser<'a> {
         match curr_tkn.unwrap().token_type {
             TokenType::PRINT => self.print_stmt(),
             TokenType::LEFTBRACE => self.block_stmt(),
+            TokenType::IF => self.if_stmt(),
             _ => self.expr_stmt(),
         }
     }
@@ -286,6 +282,41 @@ impl<'a> Parser<'a> {
             )));
         }
         Ok(Stmt::VAR(Box::new(name.unwrap()), initializer))
+    }
+
+    fn if_stmt(&mut self) -> StmtParserResult {
+        // "if"        "(" expr ")" block
+        //   |          | Handle |  Handle
+        //Start here   Consume both
+
+        //Jump the if
+        self.advance();
+        //Be sure that there is a (
+        self.consume_advance_return(TokenType::LEFTPAREN)?;
+        //Handle the boolean condition
+        let condition = self.expr_rule()?;
+        //Be sure that there is a )
+        self.consume_advance_return(TokenType::RIGHTPAREN)?;
+        //Be sure that there is a {
+        let curr = self.current_token().unwrap();
+        if curr.token_type != TokenType::LEFTBRACE {
+            return Err(ParserError::UnexpectedToken(format!(
+                "Expected {:?}, got {:?}",
+                curr.token_type, curr
+            )));
+        }
+        //The block will handle the closing }
+        let main_block = self.block_stmt()?;
+        let mut else_block: Option<Box<Stmt>> = None;
+        if self.consume(TokenType::ELSE) {
+            else_block = Some(Box::new(self.block_stmt()?));
+        }
+
+        Ok(Stmt::IF(
+            Box::new(condition),
+            Box::new(main_block),
+            else_block,
+        ))
     }
 }
 
@@ -499,13 +530,29 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod parser_tests {
 
+    use crate::{
+        ast::{
+            parser::Parser,
+            printer::AstPrinter,
+            scanner::Scanner,
+            token::{self, Token},
+        },
+        lox::Lox,
+    };
     use std::vec;
 
-    use crate::ast::{
-        parser::Parser,
-        printer::AstPrinter,
-        token::{self, Token},
-    };
+    #[test]
+    fn parse_if_stmt() {
+        //Im already sure that the scanner works well
+        let src = String::from("if(y==4){ var x = 3;}else{var y = 4;}");
+        let mut lox = Lox::default();
+        let mut scanner = Scanner::new(&mut lox, &src);
+        let tokens = scanner.scan_tokens();
+        let expr = Parser::new(tokens).parse().unwrap();
+        println!("{:?}", expr);
+        // let printed: String = AstPrinter::default().print_program(&expr);
+        // println!("{:?}", printed);
+    }
 
     #[test]
     fn parse_literal() {
@@ -517,7 +564,7 @@ mod parser_tests {
         let expr = Parser::new(&vec![tkn, semicolon_tkn, eof_tkn])
             .parse()
             .unwrap();
-        let printed = AstPrinter::default().print_program(&expr);
+        let printed: String = AstPrinter::default().print_program(&expr);
         assert_eq!(printed, "32");
     }
 

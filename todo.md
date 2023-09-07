@@ -8,6 +8,8 @@
 
 - [ ] Static types? This sounds quite challenging
 
+- [ ] If-else statements
+
 ## Improve
 
 - [] Parsing errors

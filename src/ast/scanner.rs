@@ -473,6 +473,29 @@ mod scanner_test {
         let mut lox = Lox::default();
         let mut scanner = Scanner::new(&mut lox, &src);
         let tokens = scanner.scan_tokens();
+        //todo: Assert?
         println!("{:?}", tokens)
+    }
+
+    #[test]
+    fn if_expr() {
+        let src = String::from("if(true){ var x = 3;}");
+        let mut lox = Lox::default();
+        let mut scanner = Scanner::new(&mut lox, &src);
+        let tokens = scanner.scan_tokens();
+        for t in tokens {
+            println!("{:?}", t);
+        }
+    }
+
+    #[test]
+    fn if_else_expr() {
+        let src = String::from("if(true){ var x = 3;}else{var y = 4;}");
+        let mut lox = Lox::default();
+        let mut scanner = Scanner::new(&mut lox, &src);
+        let tokens = scanner.scan_tokens();
+        for t in tokens {
+            println!("{:?}", t);
+        }
     }
 }

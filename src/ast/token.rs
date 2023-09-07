@@ -51,6 +51,18 @@ pub enum TokenType {
     EOF,
 }
 
+impl TokenType {
+    pub fn week_comparison(&self, other: &Self) -> bool {
+        match (self, other) {
+            (TokenType::IDENTIFIER(_), TokenType::IDENTIFIER(_)) => true,
+            (TokenType::STRING(_), TokenType::STRING(_)) => true,
+            (TokenType::NUMBER(_), TokenType::NUMBER(_)) => true,
+            //In any other case, there is no internal vlaue for the TT
+            _ => self == other,
+        }
+    }
+}
+
 //Literal is the current value of the token.
 //If there is some value to acces, it will be done through token_type
 //Rust is beautiful

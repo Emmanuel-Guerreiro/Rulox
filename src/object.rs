@@ -17,20 +17,19 @@ pub enum Object {
     NullObj,
 }
 
-//This will be usefull when implementing control flow
-// impl Object {
-//     pub fn is_truthy(&self) -> bool {
-//         match self {
-//             Object::BoolObj(v) => *v,
-//             Object::NumberObj(n) => *n != 0.0,
-//             Object::StringObj(s) => !s.is_empty(),
-//             _ => unimplemented!(
-//                 "Can not use objects of type {:?} as boolean expression.",
-//                 self
-//             ),
-//         }
-//     }
-// }
+impl Object {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Object::BoolObj(v) => *v,
+            Object::NumberObj(n) => *n != 0.0,
+            Object::StringObj(s) => !s.is_empty(),
+            _ => unimplemented!(
+                "Can not use objects of type {:?} as boolean expression.",
+                self
+            ),
+        }
+    }
+}
 
 impl Display for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

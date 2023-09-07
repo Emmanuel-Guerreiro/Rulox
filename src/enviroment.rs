@@ -1,7 +1,6 @@
 use crate::{interpreter::RuntimeError, object::Object};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-//This is an ugly solution to the difficulties of building LLs in rust
 type VarContent = Object;
 type EnviromentResult = Result<VarContent, RuntimeError>;
 type EnviromentOption = Option<VarContent>;
@@ -10,6 +9,7 @@ pub struct EnvironmentInner {
     locals: HashMap<String, VarContent>,
 }
 
+//This is an ugly solution to the difficulties of building Linked Lists in rust
 #[derive(Debug, Clone)]
 pub struct Environment {
     envs: Vec<Rc<RefCell<EnvironmentInner>>>,
