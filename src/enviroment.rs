@@ -65,14 +65,10 @@ impl Environment {
     }
 
     pub fn assign(&mut self, name: &String, value: Object) -> EnviromentResult {
-        let inner = self.envs[self.curr].borrow();
         while self.curr < self.envs.len() {
+            let mut inner = self.envs[self.curr].borrow_mut();
             match inner.locals.get(name) {
-                Some(_) => match self.envs[self.curr]
-                    .borrow_mut()
-                    .locals
-                    .insert(name.clone(), value)
-                {
+                Some(_) => match inner.locals.insert(name.clone(), value) {
                     None => return Err(RuntimeError::UndefinedVariable(name.clone())),
                     Some(a) => {
                         // self.print_status();
@@ -89,7 +85,6 @@ impl Environment {
         }
         return Err(RuntimeError::UndefinedVariable(name.clone()));
     }
-
     pub fn get(&self, name: &String) -> EnviromentOption {
         let loc_curr = self.envs.len();
         for l in (0..loc_curr).rev() {

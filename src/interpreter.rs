@@ -30,23 +30,20 @@ type ExcecuteStmtRes = Result<(), RuntimeError>;
 impl<'a> Interpreter<'a> {
     pub fn interpret(&mut self, stmts: &'a Vec<Stmt>) {
         for s in stmts.iter() {
-            match self.execute_stmt(s) {
-                Err(e) => {
-                    println!("{:?}", e);
-                    break;
-                }
-                Ok(_) => {}
-            }
+            if let Err(e) = self.execute_stmt(s) {
+                println!("{:?}", e);
+                break;
+            };
         }
     }
 
     fn execute_stmt(&mut self, stmt: &'a Stmt) -> ExcecuteStmtRes {
         match stmt {
             //Todo: Ingore value?
-            Stmt::EXPR(e) => {
-                _ = self.evaluate_expr(e);
-                return Ok(());
-            }
+            Stmt::EXPR(e) => match self.evaluate_expr(e) {
+                Err(e) => Err(e),
+                Ok(_) => Ok(()),
+            },
             Stmt::PRINT(e) => match self.evaluate_expr(e) {
                 Ok(value) => {
                     println!("{}", value);

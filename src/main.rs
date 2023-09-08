@@ -14,7 +14,8 @@ fn main() {
 
     match args.len() {
         2 => l.run_file(&args[1]),
-        1 => l.run_prompt(),
+        1 => l.run_file(&"./test.txt".to_string()),
+        // 1 => l.run_prompt(),
         _ => {
             println!("Usage: lox [script]");
             std::process::exit(64)

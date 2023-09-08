@@ -1,3 +1,7 @@
-if(true and false){
-    print 3;
+var x = 3;
+{
+    x = 4;
+    print x;
 }
+
+print x;
