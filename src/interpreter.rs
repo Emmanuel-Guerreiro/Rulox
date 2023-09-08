@@ -64,8 +64,17 @@ impl<'a> Interpreter<'a> {
             Stmt::IF(condition, then, else_) => {
                 self.excecute_if(condition, then, else_)?;
                 Ok(())
-            } // _ => todo!(),
+            }
+            Stmt::WHILE(condition, body) => self.excecute_while(condition, body), // _ => todo!(),
         }
+    }
+
+    fn excecute_while(&mut self, condition: &'a Box<Expr>, body: &'a Box<Stmt>) -> ExcecuteStmtRes {
+        while self.evaluate_expr(&condition)?.is_truthy() {
+            self.execute_stmt(&body)?;
+        }
+
+        Ok(())
     }
 
     fn excecute_if(

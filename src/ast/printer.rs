@@ -51,6 +51,7 @@ impl StmtVisitor<String> for AstPrinter {
             Stmt::VAR(_, _) => todo!(),
             Stmt::BLOCK(_) => todo!(),
             Stmt::IF(_, _, _) => todo!(),
+            Stmt::WHILE(_, _) => todo!(),
         }
     }
 }

@@ -10,10 +10,14 @@
 
 *   ==================== STMTs ====================
 
-*       statement      → exprStmt       -
-*                      | ifStmt         |
-*                      | printStmt ;    | Match the option
-*                      | blockStmt ;    -
+*       statement      → exprStmt      -
+*                      | ifStmt        |
+*                      | printStmt     | Match the option
+*                      | whileStmt     |
+*                      | blockStmt    ;-
+
+
+*       whileStmt      → "while" "(" expression ")" block ;
 
 *       printStmt      → "print" expression ";" ;
 
@@ -63,7 +67,7 @@
 *                                     expresion hija
 */
 
-use std::fmt::{format, Display};
+use std::fmt::Display;
 
 use super::{
     expr::Expr,
@@ -206,8 +210,33 @@ impl<'a> Parser<'a> {
             TokenType::PRINT => self.print_stmt(),
             TokenType::LEFTBRACE => self.block_stmt(),
             TokenType::IF => self.if_stmt(),
+            TokenType::WHILE => self.while_stmt(),
             _ => self.expr_stmt(),
         }
+    }
+
+    //whileStmt  → "while" "(" expression ")" block ;
+    fn while_stmt(&mut self) -> StmtParserResult {
+        // "while" "(" expression ")" block
+        //   |      |   derive     |  derive
+        //Start here|              |
+        //         Must           Must
+
+        self.advance();
+        self.consume_advance_return(TokenType::LEFTPAREN)?;
+        let condition = self.expr_rule()?;
+        self.consume_advance_return(TokenType::RIGHTPAREN)?;
+        let curr = self.current_token().unwrap();
+        if curr.token_type != TokenType::LEFTBRACE {
+            return Err(ParserError::UnexpectedToken(format!(
+                "Expected {:?}, got {:?}",
+                curr.token_type, curr
+            )));
+        }
+
+        //The block will handle the closing }
+        let main_block = self.block_stmt()?;
+        Ok(Stmt::WHILE(Box::new(condition), Box::new(main_block)))
     }
 
     fn block_stmt(&mut self) -> StmtParserResult {

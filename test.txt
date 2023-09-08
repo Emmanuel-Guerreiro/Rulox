@@ -1,7 +1,9 @@
-var x = 3;
-{
-    x = 4;
-    print x;
+var x = 0;
+var y = 0;
+while(x < 10){
+    y = y + x;
+    x = x + 1;
 }
 
+print y;
 print x;
