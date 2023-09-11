@@ -52,7 +52,8 @@ pub enum TokenType {
 }
 
 impl TokenType {
-    pub fn week_comparison(&self, other: &Self) -> bool {
+    //Checks only the type, the internal value is ignored
+    pub fn weak_comparison(&self, other: &Self) -> bool {
         match (self, other) {
             (TokenType::IDENTIFIER(_), TokenType::IDENTIFIER(_)) => true,
             (TokenType::STRING(_), TokenType::STRING(_)) => true,

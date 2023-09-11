@@ -14,10 +14,15 @@
 *                      | ifStmt        |
 *                      | printStmt     | Match the option
 *                      | whileStmt     |
+*                      | forStmt       |
 *                      | blockStmt    ;-
 
 
-*       whileStmt      → "while" "(" expression ")" block ;
+*       forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
+*                        expression? ";"
+*                        expression? ")" blockStmt ;
+
+*       whileStmt      → "while" "(" expression ")" blockStmt ;
 
 *       printStmt      → "print" expression ";" ;
 
@@ -84,7 +89,9 @@ pub enum ParserError {
 impl Display for ParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnexpectedToken(e) => write!(f, "[Error] - Parsing error: {}", e),
+            Self::UnexpectedToken(e) => {
+                write!(f, "[Error] - Parsing error: Unexpected token - {}", e)
+            }
             Self::NonValidAssigmentTarget => {
                 write!(f, "[Error] - Parsing error: Non valid assigment target")
             }
@@ -141,7 +148,7 @@ impl<'a> Parser<'a> {
         //token types (And is necessary this weird looking function istead of the built in == )
         let curr = self.current_token().unwrap().token_type.clone();
 
-        if tt.week_comparison(&curr) {
+        if tt.weak_comparison(&curr) {
             self.advance();
             let curr = Ok(self.previous().unwrap());
             return curr;
@@ -211,6 +218,7 @@ impl<'a> Parser<'a> {
             TokenType::LEFTBRACE => self.block_stmt(),
             TokenType::IF => self.if_stmt(),
             TokenType::WHILE => self.while_stmt(),
+            TokenType::FOR => self.for_stmt(),
             _ => self.expr_stmt(),
         }
     }
@@ -237,6 +245,99 @@ impl<'a> Parser<'a> {
         //The block will handle the closing }
         let main_block = self.block_stmt()?;
         Ok(Stmt::WHILE(Box::new(condition), Box::new(main_block)))
+    }
+
+    fn for_stmt(&mut self) -> StmtParserResult {
+        //            |        Initializer       | condition    |  increment  |
+        //  "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" blockStmt ;
+        self.advance();
+
+        //If there is a (, give me the variable initializer first tkn
+        self.consume_advance_return(TokenType::LEFTPAREN)?;
+
+        let initializer = match self.current_token().unwrap().token_type {
+            TokenType::SEMICOLON => None,
+            //Both var declaration and expr stmt handle the correpsonding closing ";"
+            TokenType::VAR => Some(self.var_declaration()?),
+            _ => Some(self.expr_stmt()?),
+        };
+
+        //Right now im at the beginning of the condition. If the current token is ";", there is no condition
+        //to parse. otherwise, handle condition and the corresponding ";"
+        let mut cond: Option<Expr> = None;
+        if !self.consume(TokenType::SEMICOLON) {
+            cond = Some(self.expr_rule()?);
+            self.consume_advance_return(TokenType::SEMICOLON)?;
+        }
+
+        //Now im at the beginning of the increment expr. Ive to check again if im at the end (Rightparen in this case)
+        //If im not, handle closing expression
+
+        let mut increment: Option<Expr> = None;
+        //If there is no increment => The closing paren is consumed, and now ive to handle the block
+        if !self.consume(TokenType::RIGHTPAREN) {
+            increment = Some(self.expr_rule()?);
+            //If ive handled the increment expression, then i must consume the closing )
+            //Is this method used inside and not the simple consume, because there MUST be a ) at this point, or there is
+            //a syntax error
+            self.consume_advance_return(TokenType::RIGHTPAREN)?;
+        }
+
+        //If there is no {, there is no body => Syntax errors
+        let curr = self.current_token().unwrap();
+        if curr.token_type != TokenType::LEFTBRACE {
+            return Err(ParserError::UnexpectedToken(format!(
+                "Expected {:?}, got {:?}",
+                curr.token_type, curr
+            )));
+        }
+        let body = self.block_stmt()?;
+
+        //Note: Yes i know, all this _desugarization_ should be another
+        //process, but thats for another day
+
+        //All the for has been parsed, now desugar it
+        //The idea is to translate the defined for statement into a
+        //block with a while inside.
+        //ie. for(var i = 0; i < 10; i = i + 1) <block>
+        //Is transalted into:
+        // {
+        //   var i = 0;
+        //   while (i < 10) {
+        //     print i;
+        //     i = i + 1;
+        //   }
+        // }
+        //AST -> Block([VAR | Assignation, While(cond, Block([Block(body), increment]))])
+
+        //Lets start from the innermost Stmt
+        //Build a block containing both the original body and the new increment
+        let mut block_vec = vec![Box::new(body)];
+        if let Some(e) = increment {
+            block_vec.push(Box::new(Stmt::EXPR(Box::new(e))));
+        }
+        let new_body = Box::new(Stmt::BLOCK(block_vec));
+
+        //Now we will handle the condition.
+        //In the case of for(Expr?; None; Expr?), then is the same as for(Expr?;true;Expr?)
+        //The same behaivour is defined in C or Golang, where for(;;) is the same as a while(true)
+
+        let new_condition = Box::new(match cond {
+            Some(c) => c,
+            None => Expr::Boolean(true),
+        });
+
+        //Lets build the While
+        let while_stmt = Stmt::WHILE(new_condition, new_body);
+        let mut whole_block_stmts: Vec<Box<Stmt>> = Vec::new();
+
+        //If there is some initialization, add it before the while stmt
+        if let Some(i) = initializer {
+            whole_block_stmts.push(Box::new(i));
+        }
+        whole_block_stmts.push(Box::new(while_stmt));
+        //Well... now we have a new block with an internal while stmt
+        Ok(Stmt::BLOCK(whole_block_stmts))
     }
 
     fn block_stmt(&mut self) -> StmtParserResult {

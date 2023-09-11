@@ -45,7 +45,7 @@ impl Environment {
 
         self.envs.pop();
         //Reset the current scope to the innermost
-        self.curr += self.envs.len();
+        self.curr = self.envs.len() - 1;
         Ok(())
     }
 
@@ -97,6 +97,6 @@ impl Environment {
     }
 
     pub fn print_status(&self) {
-        println!("Enviroment status: {:?}", self.envs);
+        println!("Current: {:?} | Variables: {:?}", self.curr, self.envs);
     }
 }

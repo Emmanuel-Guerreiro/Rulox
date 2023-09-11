@@ -1,7 +1,12 @@
 use std::fmt::Debug;
 
 use crate::{
-    ast::{expr::Expr, stmt::Stmt, token::Token, token::TokenType},
+    ast::{
+        expr::Expr,
+        stmt::{self, Stmt},
+        token::Token,
+        token::TokenType,
+    },
     enviroment::Environment,
     object::Object,
 };
@@ -98,7 +103,6 @@ impl<'a> Interpreter<'a> {
         //But assignations and gets will try in the local,
         //and,on fail, will try one level above (Until global)
         self.enviroment.add_new_local()?;
-
         for stmt in stmts {
             if let Err(err) = self.execute_stmt(stmt) {
                 self.enviroment.remove_local()?;
@@ -171,9 +175,7 @@ impl<'a> Interpreter<'a> {
 
     fn handle_assignment(&mut self, name: &Box<String>, value: &'a Box<Expr>) -> EvalRes {
         let v = self.evaluate_expr(&value)?;
-
-        let r = self.enviroment.assign(name, v)?;
-        Ok(r)
+        self.enviroment.assign(name, v)
     }
 
     fn handle_variable_access(&self, name: &Box<String>) -> EvalRes {
